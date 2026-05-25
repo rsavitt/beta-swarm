@@ -68,7 +68,11 @@ gov.accepts(confident_mediocre)   # True
 gov.accepts(uncertain)            # False
 ```
 
-See [`examples/demo.py`](examples/demo.py) for the full side-by-side.
+See [`examples/demo.py`](examples/demo.py) for the full side-by-side, or
+[`examples/belief_shapes.ipynb`](examples/belief_shapes.ipynb) for a visual tour
+of the belief shapes (same-mean/different-shape, a mean × concentration catalog,
+the CDF tail the governor reads, and the accepted-vs-rejected quality gap as a
+distance between distributions).
 
 ## Package layout
 
