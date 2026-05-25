@@ -1,0 +1,52 @@
+"""beta-swarm: distributional safety with a full belief over a continuous outcome.
+
+Where the soft-label formalism carried a scalar ``p = P(v = +1)``, beta-swarm
+carries a ``Beta(alpha, beta)`` belief over the continuous outcome ``v in [0,1]``,
+exposing both a **mean** (recovering ``p``) and a **concentration** (epistemic
+certainty). Payoffs become ``E_F[surplus(v)]``, governance triggers on tail mass
+``P(v < tau)``, and the quality gap generalizes to a Wasserstein/KL distance
+between accepted and rejected belief distributions.
+"""
+
+from beta_swarm.belief import BetaBelief
+from beta_swarm.governance import (
+    Decision,
+    GovernanceVerdict,
+    TailMassGovernor,
+    ValueAtRiskGovernor,
+)
+from beta_swarm.interaction import BetaInteraction, InteractionType
+from beta_swarm.metrics import (
+    DistributionalMetrics,
+    beta_kl,
+    kl_mixtures,
+    wasserstein1_mixtures,
+)
+from beta_swarm.payoff import (
+    DistributionalPayoffEngine,
+    PayoffBreakdown,
+    PayoffConfig,
+)
+from beta_swarm.proxy import BetaProxyComputer, ProxyObservables
+
+__version__ = "0.1.0"
+
+__all__ = [
+    "BetaBelief",
+    "BetaInteraction",
+    "InteractionType",
+    "DistributionalPayoffEngine",
+    "PayoffConfig",
+    "PayoffBreakdown",
+    "TailMassGovernor",
+    "ValueAtRiskGovernor",
+    "GovernanceVerdict",
+    "Decision",
+    "DistributionalMetrics",
+    "beta_kl",
+    "wasserstein1_mixtures",
+    "kl_mixtures",
+    "BetaProxyComputer",
+    "ProxyObservables",
+    "__version__",
+]
