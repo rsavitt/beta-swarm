@@ -115,11 +115,35 @@ gov.accepts(confident_mediocre)   # True
 gov.accepts(uncertain)            # False
 ```
 
-See [`examples/demo.py`](examples/demo.py) for the full side-by-side, or
-[`examples/belief_shapes.ipynb`](examples/belief_shapes.ipynb) for a visual tour
-of the belief shapes (same-mean/different-shape, a mean × concentration catalog,
-the CDF tail the governor reads, and the accepted-vs-rejected quality gap as a
-distance between distributions).
+[`examples/demo.py`](examples/demo.py) runs the full side-by-side:
+
+```text
+Two beliefs, identical mean (= the legacy point estimate p):
+
+  confident-mediocre  BetaBelief(alpha=100, beta=100 | mean=0.500, conc=200)
+  uncertain           BetaBelief(alpha=1, beta=1 | mean=0.500, conc=2)
+
+Downside tail mass  P(v < 0.25):
+  confident-mediocre  0.000
+  uncertain           0.250
+
+Tail-mass governor (reject if P(v<0.25) > 0.15):
+  confident-mediocre  ACCEPT   (P(v < 0.25) = 0.000 within tolerance)
+  uncertain           REJECT   (P(v < 0.25) = 0.250 > 0.150: downside risk too high)
+
+Expected surplus with a convex downside penalty (gamma=2):
+  confident-mediocre  +0.749
+  uncertain           +0.667
+
+5%-Value-at-Risk outcome (the quality you can count on 95% of the time):
+  confident-mediocre  0.442
+  uncertain           0.050
+```
+
+For the visual tour of the same results, see
+[`examples/belief_shapes.ipynb`](examples/belief_shapes.ipynb) (belief shapes,
+the CDF tail the governor reads, the tail-mass contour, and the
+accepted-vs-rejected quality gap as a distance between distributions).
 
 ## Package layout
 
