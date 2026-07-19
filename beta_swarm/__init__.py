@@ -10,6 +10,16 @@ between accepted and rejected belief distributions.
 
 from beta_swarm.agents import Archetype, SimAgent, make_population
 from beta_swarm.belief import BetaBelief
+from beta_swarm.calibration import (
+    BinStats,
+    CalibrationReport,
+    calibrate,
+    calibrate_interactions,
+    fidelity_run,
+    pit_values,
+    sweep_evidence_scale,
+    tail_reliability_bins,
+)
 from beta_swarm.collusion import CollusionDetector, PairReport
 from beta_swarm.governance import (
     Decision,
@@ -69,5 +79,13 @@ __all__ = [
     "decay_belief",
     "CollusionDetector",
     "PairReport",
+    "CalibrationReport",
+    "BinStats",
+    "calibrate",
+    "calibrate_interactions",
+    "fidelity_run",
+    "sweep_evidence_scale",
+    "pit_values",
+    "tail_reliability_bins",
     "__version__",
 ]

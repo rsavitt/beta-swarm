@@ -236,6 +236,38 @@ belief identically and smears out per-pair contrast — and baseline each pair
 against the initiator's **arm's-length traffic** only, or fellow ring members
 contaminate the comparison.
 
+## Calibration: is the belief an honest forecast?
+
+The parent framework's calibration arm bins predicted probability against
+realized frequency (reliability diagram, ECE/MCE, Brier). Each piece
+generalizes to a full distribution:
+
+| Scalar `p` | beta-swarm |
+|---|---|
+| reliability diagram | **PIT histogram** — `F(v_true)` is uniform iff calibrated; its shape diagnoses the failure (U = overconfident, hump = underconfident, slope = mean bias) |
+| binned ECE / MCE | **tail-mass reliability** — bin by predicted `P(v < τ)`, compare to the empirical bad-outcome rate: does the governance lever mean what it says? |
+| Brier score | **CRPS** |
+| — | **sharpness** — mean concentration, maximized *subject to* calibration |
+
+[`examples/calibration_reliability.py`](examples/calibration_reliability.py)
+runs the fidelity harness (the agent emission models are the conditional
+generative model) and finds:
+
+1. **The default proxy is underconfident** on faithful traffic: where the
+   lever reads 15% downside risk, the realized bad rate is under 1% — honest
+   agents pay for phantom risk.
+2. **The concentration knob has a calibrated optimum.** A paired sweep of
+   `evidence_scale` (same draws, only the sharpening differs) bottoms out
+   around 14–20 — the default 1.5 is ~10x too timid — then degrades as
+   overconfidence sets in. This is the tunable the scalar formalism never had.
+3. **Deceptive traffic destroys calibration in a localized way**: 98% of PIT
+   mass lands in the bottom bin (outcomes below the belief's entire support).
+   Miscalibration that localized is a fingerprint, not noise.
+4. **Governance is what calibrates the beliefs.** The raw proxy is equally
+   miscalibrated under both showdown governors (tail ECE ≈ 0.31), but audits
+   and reputation pooling repair the tail governor's decision beliefs to
+   tail ECE 0.034 — a 9x more honest lever than the mean governor's 0.173.
+
 ## Package layout
 
 | Module | Contents |
@@ -249,6 +281,7 @@ contaminate the comparison.
 | `beta_swarm.agents` | `SimAgent` archetypes — honest, mediocre, deceptive, colluder emission models |
 | `beta_swarm.simulation` | `Simulation` — governed epoch loop, belief reputation, audits, epoch metrics |
 | `beta_swarm.collusion` | `CollusionDetector` — ring detection from belief-shape asymmetry |
+| `beta_swarm.calibration` | PIT histograms, tail-mass reliability, CRPS, `evidence_scale` sweeps |
 
 ## Tests
 
