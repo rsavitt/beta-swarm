@@ -177,17 +177,17 @@ lever:
 ```text
                            mean governor   tail governor
 --------------------------------------------------------
-realized welfare                   +86.8          +127.4
-realized toxicity                  0.374           0.352
-audits run                             0             505
-mean CRPS (calibration)           0.0968          0.0606
+realized welfare                   +69.8          +147.6
+realized toxicity                  0.380           0.344
+audits run                             0             521
+mean CRPS (calibration)           0.1011          0.0593
 
 Acceptance rate by archetype:
   honest                100%             99%
-  mediocre               79%             80%
-  deceptive              14%              0%
+  mediocre               88%             74%
+  deceptive              12%              0%
 
-Epoch 0 deceptive acceptance — mean governor: 80%, tail governor: 0%.
+Epoch 0 deceptive acceptance — mean governor: 73%, tail governor: 0%.
 ```
 
 The mean governor admits deceptive work wholesale until pooled reputation drags
@@ -199,6 +199,43 @@ threshold must be reachable by a single audit — roughly base concentration +
 `audit_strength` — or every interaction loops `DEFER → REJECT` and the
 ecosystem shuts down.)
 
+## Collusion: the fingerprint is in the shape
+
+The parent framework's collusion detector uses two scalar signals — unusual
+pair frequency, and quality asymmetry (high `p` inside the ring, low `p`
+outside). A competent ring defeats the second by lying to *everyone*: belief
+means inside and outside the ring come out nearly identical.
+
+The distributional fingerprint survives, because **corroboration is
+evidence**. A ring counterparty actively confirms the inflated signals with
+faked engagement — the one channel a lone deceiver cannot manufacture — so
+within-ring beliefs arrive with the same mean but systematically *higher
+concentration*. `CollusionDetector` reads that shape asymmetry (Wasserstein-1
+between within-pair and arm's-length belief mixtures, concentration lift, tail
+asymmetry) alongside the graph signal (frequency lift).
+
+[`examples/collusion_ring.py`](examples/collusion_ring.py) hides a three-agent
+ring in a mixed population under a permissive mean-threshold governor:
+
+```text
+pair                           n   freq  mean gap  W1 gap   conc  suspicion
+---------------------------------------------------------------------------
+colluder-0 -> colluder-1      45   4.0x    +0.050   0.050  1.38x      0.201
+colluder-2 -> colluder-1      46   4.1x    +0.046   0.046  1.36x      0.192
+colluder-1 -> colluder-0      52   4.7x    +0.040   0.040  1.33x      0.188
+...
+
+Ring pairs flagged: 6/6; false positives: 0.
+```
+
+The scalar tell is a mean gap of +0.05; the shape tells are a 1.35x
+concentration lift and the missing downside tail. Two log-design lessons made
+this work: score the **per-interaction evidence belief** (`proxy_belief`), not
+the reputation-pooled decision belief — a shared prior enters every pooled
+belief identically and smears out per-pair contrast — and baseline each pair
+against the initiator's **arm's-length traffic** only, or fellow ring members
+contaminate the comparison.
+
 ## Package layout
 
 | Module | Contents |
@@ -209,8 +246,9 @@ ecosystem shuts down.)
 | `beta_swarm.metrics` | Wasserstein/KL quality gap, distributional toxicity, CRPS |
 | `beta_swarm.proxy` | `BetaProxyComputer` — observables → belief (mean *and* concentration) |
 | `beta_swarm.interaction` | `BetaInteraction` — interaction carrying a `BetaBelief` |
-| `beta_swarm.agents` | `SimAgent` archetypes — honest, mediocre, deceptive emission models |
+| `beta_swarm.agents` | `SimAgent` archetypes — honest, mediocre, deceptive, colluder emission models |
 | `beta_swarm.simulation` | `Simulation` — governed epoch loop, belief reputation, audits, epoch metrics |
+| `beta_swarm.collusion` | `CollusionDetector` — ring detection from belief-shape asymmetry |
 
 ## Tests
 

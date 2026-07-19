@@ -37,8 +37,15 @@ class BetaInteraction(BaseModel):
     interaction_type: InteractionType = InteractionType.REPLY
     accepted: bool = False
 
-    # The belief over the continuous outcome.
+    # The belief over the continuous outcome that decisions were made on
+    # (typically pooled with the initiator's reputation, sharpened by audits).
     belief: BetaBelief = Field(default_factory=BetaBelief.uniform)
+
+    # The belief from this interaction's own evidence alone, before pooling
+    # with any prior. Log-analysis that compares interactions to each other
+    # (e.g. collusion detection) should prefer this: a shared prior enters
+    # every pooled belief identically and smears out per-pair contrasts.
+    proxy_belief: Optional[BetaBelief] = None
 
     # Payoff components (unchanged from the scalar formalism).
     tau: float = 0.0
@@ -70,15 +77,19 @@ class BetaInteraction(BaseModel):
         return self.belief.concentration
 
     def to_dict(self) -> dict:
-        d = self.model_dump(mode="json", exclude={"belief"})
+        d = self.model_dump(mode="json", exclude={"belief", "proxy_belief"})
         d["belief"] = self.belief.to_dict()
+        d["proxy_belief"] = (
+            self.proxy_belief.to_dict() if self.proxy_belief is not None else None
+        )
         return d
 
     @classmethod
     def from_dict(cls, data: dict) -> "BetaInteraction":
         data = dict(data)
-        belief = data.pop("belief", None)
         kwargs: dict[str, Any] = dict(data)
-        if belief is not None:
-            kwargs["belief"] = BetaBelief.from_dict(belief)
+        for key in ("belief", "proxy_belief"):
+            raw = kwargs.pop(key, None)
+            if raw is not None:
+                kwargs[key] = BetaBelief.from_dict(raw)
         return cls(**kwargs)

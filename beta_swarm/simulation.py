@@ -93,6 +93,10 @@ class SimulationConfig:
         welfare too).
     reputation_decay:
         Epoch-end evidence discount on every reputation belief (1 = no decay).
+    ring_affinity:
+        Probability that a ring member picks a fellow ring member as
+        counterparty (uniform over the rest otherwise). Non-ring agents always
+        pick uniformly.
     """
 
     n_epochs: int = 20
@@ -102,6 +106,7 @@ class SimulationConfig:
     audit_noise: float = 0.10
     audit_cost: float = 0.05
     reputation_decay: float = 0.9
+    ring_affinity: float = 0.8
 
 
 @dataclass
@@ -238,9 +243,11 @@ class Simulation:
         rng: np.random.Generator,
     ) -> tuple[BetaInteraction, bool]:
         cfg = self.config
+        counterparty = self._pick_counterparty(agent, rng)
         v_true = agent.sample_outcome(rng)
-        obs = agent.emit_observables(v_true, rng)
-        belief = pool_beliefs(self.proxy.compute_belief(obs), reputation[agent.agent_id])
+        obs = agent.emit_observables(v_true, rng, counterparty=counterparty)
+        proxy_belief = self.proxy.compute_belief(obs)
+        belief = pool_beliefs(proxy_belief, reputation[agent.agent_id])
 
         verdict = self.governor.evaluate(belief)
         audited = False
@@ -256,15 +263,14 @@ class Simulation:
             verdict = self.governor.evaluate(belief)
 
         accepted = verdict.decision is Decision.ACCEPT
-        others = [a.agent_id for a in self.population if a.agent_id != agent.agent_id]
-        counterparty = str(rng.choice(others)) if others else agent.agent_id
 
         interaction = BetaInteraction(
             initiator=agent.agent_id,
-            counterparty=counterparty,
+            counterparty=counterparty.agent_id,
             interaction_type=InteractionType.COLLABORATION,
             accepted=accepted,
             belief=belief,
+            proxy_belief=proxy_belief,
             c_a=audit_cost,
             ground_truth=v_true,
             metadata={
@@ -275,6 +281,15 @@ class Simulation:
             },
         )
         return interaction, audited
+
+    def _pick_counterparty(self, agent: SimAgent, rng: np.random.Generator) -> SimAgent:
+        others = [a for a in self.population if a.agent_id != agent.agent_id]
+        if not others:
+            return agent
+        ring_partners = [a for a in others if agent.in_ring_with(a)]
+        if ring_partners and rng.random() < self.config.ring_affinity:
+            return ring_partners[rng.integers(len(ring_partners))]
+        return others[rng.integers(len(others))]
 
     # ------------------------------------------------------------------
     # Epoch metrics

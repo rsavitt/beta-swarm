@@ -60,7 +60,10 @@ def main() -> None:
         print(f"{label:24s}{fmt(results['mean governor']):>16s}{fmt(results['tail governor']):>16s}")
 
     print("\nAcceptance rate by archetype:")
+    present = {i.metadata["archetype"] for i in results["mean governor"].interactions}
     for archetype in Archetype:
+        if archetype.value not in present:
+            continue
         print(
             f"  {archetype.value:12s}"
             f"{results['mean governor'].acceptance_rate(archetype):>14.0%}"

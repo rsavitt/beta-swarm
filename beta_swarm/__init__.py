@@ -10,6 +10,7 @@ between accepted and rejected belief distributions.
 
 from beta_swarm.agents import Archetype, SimAgent, make_population
 from beta_swarm.belief import BetaBelief
+from beta_swarm.collusion import CollusionDetector, PairReport
 from beta_swarm.governance import (
     Decision,
     GovernanceVerdict,
@@ -66,5 +67,7 @@ __all__ = [
     "EpochReport",
     "pool_beliefs",
     "decay_belief",
+    "CollusionDetector",
+    "PairReport",
     "__version__",
 ]
