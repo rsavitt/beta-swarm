@@ -145,6 +145,60 @@ For the visual tour of the same results, see
 the CDF tail the governor reads, the tail-mass contour, and the
 accepted-vs-rejected quality gap as a distance between distributions).
 
+## Closing the loop: simulation
+
+The parent SWARM framework's central lesson is that safety phenomena are
+*emergent* — you only see them by running populations of behavioral archetypes
+through a governed interaction loop. `beta_swarm.simulation` ports that loop
+and generalizes three of its mechanisms to distributions:
+
+- **Reputation is a belief.** The governor keeps a `BetaBelief` per agent,
+  conjugately updated with realized outcomes. Reputation decay becomes
+  *concentration* decay: a neglected reputation diffuses back toward
+  "we don't know", rather than sliding toward a default score.
+- **Evidence pools.** The per-interaction proxy belief and the initiator's
+  reputation belief combine by adding pseudo-counts (`pool_beliefs`).
+- **Audits add evidence.** A `DEFER` verdict routes the interaction to an audit
+  that injects pseudo-counts of the (noisily observed) true outcome, sharpening
+  the belief before the governor re-decides — at a cost that falls on unproven
+  agents and fades as their reputation concentrates.
+
+The agent population distills SWARM's fifty-odd archetypes to the three that
+matter distributionally — honest, mediocre, and **deceptive**. A deceptive
+agent inflates the *level* of its observables (reports high progress, hides
+rework and verifier events) but cannot fake the *volume* of evidence, so its
+beliefs arrive with a high mean and low concentration. That diffuse shape is
+the distributional fingerprint of deception — invisible to scalar `p`.
+
+[`examples/governor_showdown.py`](examples/governor_showdown.py) runs the same
+seeded population under the legacy mean-threshold lever and the tail-mass
+lever:
+
+```text
+                           mean governor   tail governor
+--------------------------------------------------------
+realized welfare                   +86.8          +127.4
+realized toxicity                  0.374           0.352
+audits run                             0             505
+mean CRPS (calibration)           0.0968          0.0606
+
+Acceptance rate by archetype:
+  honest                100%             99%
+  mediocre               79%             80%
+  deceptive              14%              0%
+
+Epoch 0 deceptive acceptance — mean governor: 80%, tail governor: 0%.
+```
+
+The mean governor admits deceptive work wholesale until pooled reputation drags
+each agent's mean under the bar — paying for the damage it learns from, and
+letting reputation decay re-admit them intermittently forever. The tail
+governor defers exactly the diffuse beliefs to audit and shuts deception out
+from epoch 0, before any reputation exists. (One tuning constraint: the defer
+threshold must be reachable by a single audit — roughly base concentration +
+`audit_strength` — or every interaction loops `DEFER → REJECT` and the
+ecosystem shuts down.)
+
 ## Package layout
 
 | Module | Contents |
@@ -155,6 +209,8 @@ accepted-vs-rejected quality gap as a distance between distributions).
 | `beta_swarm.metrics` | Wasserstein/KL quality gap, distributional toxicity, CRPS |
 | `beta_swarm.proxy` | `BetaProxyComputer` — observables → belief (mean *and* concentration) |
 | `beta_swarm.interaction` | `BetaInteraction` — interaction carrying a `BetaBelief` |
+| `beta_swarm.agents` | `SimAgent` archetypes — honest, mediocre, deceptive emission models |
+| `beta_swarm.simulation` | `Simulation` — governed epoch loop, belief reputation, audits, epoch metrics |
 
 ## Tests
 

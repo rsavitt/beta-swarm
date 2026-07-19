@@ -8,6 +8,7 @@ certainty). Payoffs become ``E_F[surplus(v)]``, governance triggers on tail mass
 between accepted and rejected belief distributions.
 """
 
+from beta_swarm.agents import Archetype, SimAgent, make_population
 from beta_swarm.belief import BetaBelief
 from beta_swarm.governance import (
     Decision,
@@ -28,6 +29,14 @@ from beta_swarm.payoff import (
     PayoffConfig,
 )
 from beta_swarm.proxy import BetaProxyComputer, ProxyObservables
+from beta_swarm.simulation import (
+    EpochReport,
+    Simulation,
+    SimulationConfig,
+    SimulationResult,
+    decay_belief,
+    pool_beliefs,
+)
 
 __version__ = "0.1.0"
 
@@ -48,5 +57,14 @@ __all__ = [
     "kl_mixtures",
     "BetaProxyComputer",
     "ProxyObservables",
+    "Archetype",
+    "SimAgent",
+    "make_population",
+    "Simulation",
+    "SimulationConfig",
+    "SimulationResult",
+    "EpochReport",
+    "pool_beliefs",
+    "decay_belief",
     "__version__",
 ]
