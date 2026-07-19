@@ -47,6 +47,7 @@ from beta_swarm.agents import Archetype, SimAgent, make_population
 from beta_swarm.collusion import CollusionDetector
 from beta_swarm.governance import TailMassGovernor
 from beta_swarm.interaction import BetaInteraction
+from beta_swarm.levers import GovernanceStack
 from beta_swarm.payoff import DistributionalPayoffEngine
 from beta_swarm.proxy import BetaProxyComputer, ProxyObservables
 from beta_swarm.simulation import Simulation, SimulationConfig, SimulationResult
@@ -155,6 +156,7 @@ class AttackResult:
     n_adversary_interactions: int
     evasion_rate: float          # fraction of adversary interactions accepted
     audit_evasion_rate: float    # fraction of adversary interactions never audited
+    blocked_rate: float          # fraction barred by a lever (frozen / no stake)
     realized_damage: float       # welfare destroyed by accepted adversary work (>=0)
     adversary_payoff: float      # total payoff banked by the adversaries
     detection_epoch: int | None  # first epoch acceptance stays suppressed, else None
@@ -176,20 +178,22 @@ def run_attack(
     governor: TailMassGovernor,
     config: SimulationConfig | None = None,
     proxy: BetaProxyComputer | None = None,
+    levers: GovernanceStack | None = None,
     detection_threshold: float = 0.1,
 ) -> AttackResult:
     """Execute an attack and score governance robustness.
 
     Pass a ``proxy`` to test proxy-level mitigations (e.g. a concentration cap
-    against volume forgery). ``detection_threshold`` is the per-epoch adversary
-    acceptance rate below which governance is considered to have caught on;
-    ``detection_epoch`` is the first epoch from which acceptance stays at or
-    below it for the remainder of the run.
+    against volume forgery), or a ``levers`` stack to test surrounding
+    governance (staking, circuit breakers). ``detection_threshold`` is the
+    per-epoch adversary acceptance rate below which governance is considered to
+    have caught on; ``detection_epoch`` is the first epoch from which acceptance
+    stays at or below it for the remainder of the run.
     """
     config = config or SimulationConfig()
     engine = DistributionalPayoffEngine()
     result = Simulation(
-        scenario.population(), governor, config, engine=engine, proxy=proxy
+        scenario.population(), governor, config, engine=engine, proxy=proxy, levers=levers
     ).run()
 
     ids = scenario.adversary_ids
@@ -201,6 +205,7 @@ def run_attack(
     accepted = [i for i in adversary if i.accepted]
     evasion_rate = len(accepted) / n
     audit_evasion_rate = sum(not i.metadata["audited"] for i in adversary) / n
+    blocked_rate = sum(i.metadata.get("blocked", False) for i in adversary) / n
     realized_damage = sum(
         max(0.0, float(engine.harm_fn(np.asarray(i.ground_truth))
                        - engine.surplus_fn(np.asarray(i.ground_truth))))
@@ -227,6 +232,7 @@ def run_attack(
         n_adversary_interactions=n,
         evasion_rate=evasion_rate,
         audit_evasion_rate=audit_evasion_rate,
+        blocked_rate=blocked_rate,
         realized_damage=realized_damage,
         adversary_payoff=adversary_payoff,
         detection_epoch=detection_epoch,

@@ -321,6 +321,43 @@ evasion from 56% to 10% and damage 12x. Both mitigations, plus a random-audit
 floor, are `SimulationConfig` levers, so an attack and its patch run through the
 same harness.
 
+## Governance levers: accountability beyond the gate
+
+The tail-mass governor decides admission *ex ante*, from the belief — and a
+forged belief slips past it. `beta_swarm.levers` ports the parent framework's
+composable lever pattern: each lever returns a `LeverEffect` (costs, freezes,
+resource deltas), a `GovernanceStack` merges them, and levers fire at lifecycle
+points (`on_epoch_start`, `on_interaction`, `can_act`). The distributional
+generalizations act *ex post*, on realized outcomes, where no forged belief can
+hide:
+
+- **StakingLever** — participation costs a stake, slashed when accepted work's
+  realized outcome lands below `tau`.
+- **TailCircuitBreaker** — freeze an agent whose recent *realized* bad-outcome
+  rate exceeds a bound (or its ex-ante belief tail mass, with `use_realized=False`).
+- **RiskTaxLever** — a transaction tax priced on the belief's tail mass.
+
+Because they judge ground truth rather than the projected belief, a staking +
+circuit-breaker stack contains the attacks that beat the belief gate — **with no
+concentration cap** ([`examples/governance_levers.py`](examples/governance_levers.py)):
+
+```text
+  attack                         evasion  blocked          damage
+  -------------------------------------------------------------
+  volume_forgery           56% -> 3%         97%     349 -> 20
+  reputation_farming       77% -> 51%        47%     189 -> 26
+  collusion_ring            9% -> 4%         68%      27 -> 15
+```
+
+Staking is the workhorse: skin in the game runs out for an agent whose accepted
+work keeps coming up bad, so volume forgery's damage collapses 17x. Reputation
+farming keeps a high evasion rate — its pre-flip work is genuinely good — but its
+post-flip *damage* falls 7x. The accountability is **not free**, though: staking
+also slashes an honest agent that occasionally underperforms, so honest
+throughput dips (99% → 92%) and welfare with it. The circuit breaker (which
+needs a *sustained* bad rate) is more targeted. Choosing the mix is the
+governance design problem the levers exist to study.
+
 ## Package layout
 
 | Module | Contents |
@@ -336,6 +373,7 @@ same harness.
 | `beta_swarm.collusion` | `CollusionDetector` — ring detection from belief-shape asymmetry |
 | `beta_swarm.calibration` | PIT histograms, tail-mass reliability, CRPS, `evidence_scale` sweeps |
 | `beta_swarm.redteam` | `AttackLibrary` — volume forgery, reputation farming, collusion ring; `run_attack` evaluator |
+| `beta_swarm.levers` | `GovernanceStack` — staking, tail circuit breaker, risk tax; composable ex-post accountability |
 
 ## Tests
 

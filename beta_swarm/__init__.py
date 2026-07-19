@@ -28,6 +28,15 @@ from beta_swarm.governance import (
     ValueAtRiskGovernor,
 )
 from beta_swarm.interaction import BetaInteraction, InteractionType
+from beta_swarm.levers import (
+    GovernanceLever,
+    GovernanceStack,
+    LeverContext,
+    LeverEffect,
+    RiskTaxLever,
+    StakingLever,
+    TailCircuitBreaker,
+)
 from beta_swarm.metrics import (
     DistributionalMetrics,
     beta_kl,
@@ -103,5 +112,12 @@ __all__ = [
     "VolumeForger",
     "ReputationFarmer",
     "run_attack",
+    "GovernanceStack",
+    "GovernanceLever",
+    "LeverEffect",
+    "LeverContext",
+    "StakingLever",
+    "TailCircuitBreaker",
+    "RiskTaxLever",
     "__version__",
 ]

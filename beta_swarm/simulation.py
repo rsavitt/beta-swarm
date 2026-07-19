@@ -36,6 +36,7 @@ from beta_swarm.agents import Archetype, SimAgent
 from beta_swarm.belief import BetaBelief
 from beta_swarm.governance import Decision, TailMassGovernor
 from beta_swarm.interaction import BetaInteraction, InteractionType
+from beta_swarm.levers import GovernanceStack, LeverContext
 from beta_swarm.metrics import DistributionalMetrics
 from beta_swarm.payoff import DistributionalPayoffEngine
 from beta_swarm.proxy import BetaProxyComputer
@@ -187,6 +188,7 @@ class Simulation:
         config: SimulationConfig | None = None,
         engine: DistributionalPayoffEngine | None = None,
         proxy: BetaProxyComputer | None = None,
+        levers: GovernanceStack | None = None,
     ):
         if not population:
             raise ValueError("population must be non-empty")
@@ -195,6 +197,7 @@ class Simulation:
         self.config = config or SimulationConfig()
         self.engine = engine or DistributionalPayoffEngine()
         self.proxy = proxy or BetaProxyComputer()
+        self.levers = levers
         self.metrics = DistributionalMetrics()
 
     def run(self) -> SimulationResult:
@@ -206,14 +209,22 @@ class Simulation:
         payoffs: dict[str, float] = {a.agent_id: 0.0 for a in self.population}
         all_interactions: list[BetaInteraction] = []
         reports: list[EpochReport] = []
+        if self.levers is not None:
+            self.levers.reset([a.agent_id for a in self.population])
 
         for epoch in range(cfg.n_epochs):
             epoch_interactions: list[BetaInteraction] = []
             n_audits = 0
             welfare = 0.0
+            if self.levers is not None:
+                self.levers.on_epoch_start(epoch)
 
             for _ in range(cfg.steps_per_epoch):
                 for agent in self.population:
+                    if self.levers is not None and not self.levers.can_act(agent.agent_id):
+                        epoch_interactions.append(self._blocked_interaction(agent))
+                        continue
+
                     interaction, audited = self._one_interaction(
                         agent, reputation, rng, epoch
                     )
@@ -236,6 +247,24 @@ class Simulation:
                         reputation[agent.agent_id] = reputation[agent.agent_id].update(
                             positive=v, negative=1.0 - v
                         )
+
+                    if self.levers is not None:
+                        effect = self.levers.on_interaction(
+                            LeverContext(
+                                epoch=epoch,
+                                agent_id=agent.agent_id,
+                                belief=interaction.belief,
+                                accepted=interaction.accepted,
+                                ground_truth=interaction.ground_truth,
+                                resources=self.levers.resources.get(agent.agent_id, 0.0),
+                            )
+                        )
+                        if effect.cost:
+                            payoffs[agent.agent_id] -= effect.cost
+                            welfare -= effect.cost
+                            interaction.metadata["lever_cost"] = effect.cost
+                        if effect.details:
+                            interaction.metadata["lever_details"] = effect.details
 
             for agent_id, belief in reputation.items():
                 reputation[agent_id] = decay_belief(belief, cfg.reputation_decay)
@@ -307,6 +336,27 @@ class Simulation:
             },
         )
         return interaction, audited
+
+    def _blocked_interaction(self, agent: SimAgent) -> BetaInteraction:
+        """A rejected placeholder for an agent barred by a lever (frozen / no stake).
+
+        No proxy, governor, or payoff runs; the outcome is never observed
+        (``ground_truth=None``), so it is excluded from calibration and quality
+        metrics while still keeping the per-epoch interaction count stable.
+        """
+        return BetaInteraction(
+            initiator=agent.agent_id,
+            counterparty=agent.agent_id,
+            interaction_type=InteractionType.COLLABORATION,
+            accepted=False,
+            ground_truth=None,
+            metadata={
+                "archetype": agent.archetype.value,
+                "audited": False,
+                "verdict": "blocked",
+                "blocked": True,
+            },
+        )
 
     def _pick_counterparty(self, agent: SimAgent, rng: np.random.Generator) -> SimAgent:
         others = [a for a in self.population if a.agent_id != agent.agent_id]
