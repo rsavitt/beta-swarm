@@ -97,6 +97,18 @@ class SimulationConfig:
         Probability that a ring member picks a fellow ring member as
         counterparty (uniform over the rest otherwise). Non-ring agents always
         pick uniformly.
+    random_audit_prob:
+        Probability that any interaction is audited regardless of its verdict —
+        a floor of scrutiny no belief shape is exempt from (the parent
+        framework's random-audit lever). ``0`` disables it.
+    audit_scales_with_concentration:
+        If ``True``, an audit's evidence strength scales with the audited
+        belief's concentration (``audit_concentration_multiple * concentration``,
+        floored at ``audit_strength``) so a forged-confidence belief cannot
+        blunt its own audit. If ``False`` (default), audits carry a fixed
+        ``audit_strength`` — the vulnerable configuration.
+    audit_concentration_multiple:
+        The scaling factor used when ``audit_scales_with_concentration`` is set.
     """
 
     n_epochs: int = 20
@@ -107,6 +119,9 @@ class SimulationConfig:
     audit_cost: float = 0.05
     reputation_decay: float = 0.9
     ring_affinity: float = 0.8
+    random_audit_prob: float = 0.0
+    audit_scales_with_concentration: bool = False
+    audit_concentration_multiple: float = 2.0
 
 
 @dataclass
@@ -199,7 +214,9 @@ class Simulation:
 
             for _ in range(cfg.steps_per_epoch):
                 for agent in self.population:
-                    interaction, audited = self._one_interaction(agent, reputation, rng)
+                    interaction, audited = self._one_interaction(
+                        agent, reputation, rng, epoch
+                    )
                     n_audits += audited
                     epoch_interactions.append(interaction)
 
@@ -241,24 +258,33 @@ class Simulation:
         agent: SimAgent,
         reputation: dict[str, BetaBelief],
         rng: np.random.Generator,
+        epoch: int = 0,
     ) -> tuple[BetaInteraction, bool]:
         cfg = self.config
         counterparty = self._pick_counterparty(agent, rng)
-        v_true = agent.sample_outcome(rng)
-        obs = agent.emit_observables(v_true, rng, counterparty=counterparty)
+        v_true = agent.sample_outcome(rng, epoch)
+        obs = agent.emit_observables(v_true, rng, counterparty=counterparty, epoch=epoch)
         proxy_belief = self.proxy.compute_belief(obs)
         belief = pool_beliefs(proxy_belief, reputation[agent.agent_id])
 
         verdict = self.governor.evaluate(belief)
         audited = False
         audit_cost = 0.0
-        if verdict.decision is Decision.DEFER:
+        forced_audit = cfg.random_audit_prob > 0.0 and rng.random() < cfg.random_audit_prob
+        if verdict.decision is Decision.DEFER or forced_audit:
             audited = True
             audit_cost = cfg.audit_cost
+            # An audit must be able to overrule the belief it checks. A fixed
+            # strength is blunted by a forged-confidence belief (volume-forgery
+            # attack); scaling the audit to the belief's concentration keeps
+            # ground truth dominant regardless of how sharp the belief claims.
+            strength = cfg.audit_strength
+            if cfg.audit_scales_with_concentration:
+                strength = max(strength, cfg.audit_concentration_multiple * belief.concentration)
             v_seen = float(np.clip(v_true + rng.normal(0.0, cfg.audit_noise), 0.0, 1.0))
             belief = belief.update(
-                positive=cfg.audit_strength * v_seen,
-                negative=cfg.audit_strength * (1.0 - v_seen),
+                positive=strength * v_seen,
+                negative=strength * (1.0 - v_seen),
             )
             verdict = self.governor.evaluate(belief)
 

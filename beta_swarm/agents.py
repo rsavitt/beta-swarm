@@ -82,8 +82,12 @@ class SimAgent:
     def in_ring_with(self, other: "SimAgent | None") -> bool:
         return other is not None and self.ring is not None and self.ring == other.ring
 
-    def sample_outcome(self, rng: np.random.Generator) -> float:
-        """Draw the true quality ``v_true in [0, 1]`` of one interaction."""
+    def sample_outcome(self, rng: np.random.Generator, epoch: int = 0) -> float:
+        """Draw the true quality ``v_true in [0, 1]`` of one interaction.
+
+        ``epoch`` is passed for time-varying strategies (e.g. a red-team agent
+        that does genuine work early, then flips); base archetypes ignore it.
+        """
         return float(rng.beta(self.quality_alpha, self.quality_beta))
 
     def emit_observables(
@@ -91,6 +95,7 @@ class SimAgent:
         v_true: float,
         rng: np.random.Generator,
         counterparty: "SimAgent | None" = None,
+        epoch: int = 0,
     ) -> ProxyObservables:
         """Generate the observable signals the proxy will see.
 
@@ -103,6 +108,9 @@ class SimAgent:
         emits like a deceiver, except that a ring counterparty corroborates with
         enthusiastic engagement, buying back the concentration a lone deceiver
         forfeits.
+
+        ``epoch`` is passed for time-varying strategies (e.g. red-team
+        reputation farming); the base archetypes ignore it.
         """
         if self.archetype in (Archetype.DECEPTIVE, Archetype.COLLUDER):
             if self.archetype is Archetype.COLLUDER and self.in_ring_with(counterparty):

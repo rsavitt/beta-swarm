@@ -268,6 +268,59 @@ generative model) and finds:
    and reputation pooling repair the tail governor's decision beliefs to
    tail ECE 0.034 — a 9x more honest lever than the mean governor's 0.173.
 
+## Red-teaming: attacking the load-bearing assumption
+
+Every defense above rests on one assumption — **deception cannot fake evidence
+volume**, so a malicious interaction's belief arrives *diffuse* and gets
+deferred to audit. `beta_swarm.redteam` ports the parent framework's attack
+library and evaluator to break exactly that assumption.
+[`examples/redteam_report.py`](examples/redteam_report.py) runs three attacks
+against the standard tail governor:
+
+```text
+  attack              category       evasion  audit-ev  damage  detect
+  --------------------------------------------------------------------
+  volume_forgery      evasion           56%       99%     349   never
+  reputation_farming  exploitation      77%       77%     189   ep 16
+  collusion_ring      coordination       9%        0%      27   ep 19
+```
+
+- **Volume forgery** is the break. The proxy reads event *count* as evidence,
+  so an adversary fabricates a pile of claimed-resolved rework events: the
+  penalty signal saturates (the mean barely moves) but the concentration climbs
+  past the DEFER threshold. The forged-sharp belief has almost no tail mass, so
+  it is accepted **with no audit** — 56% evasion, 99% audit-evasion, never
+  detected. And forged concentration is doubly nasty: even when an audit does
+  fire, a fixed-strength audit can't overrule a belief that claims high
+  confidence.
+- **Reputation farming** does genuine work to bank reputation, then flips to
+  poor work behind inflated signals — sustaining acceptance for a bounded
+  exploitation window (~6 epochs past the flip here) before realized outcomes
+  convict it. The window length *is* the detection latency.
+- **Collusion ring** is contained by the tail gate and flagged by the shape
+  detector from the section above.
+
+The fix for volume forgery takes two layers, each closing one failure:
+
+```text
+  configuration          evasion  audit-ev  damage
+  ------------------------------------------------
+  vulnerable                56%       99%     349
+  + scaled audit            52%       88%     318
+  + concentration cap       10%        0%      29
+  + both                     9%        0%      27
+```
+
+Scaling audit strength to the audited belief's concentration (so an audit can
+always overrule the belief it checks) barely helps alone — the attack never
+*triggers* an audit. The decisive fix is **capping the concentration a single
+interaction may assert** (`BetaProxyComputer(max_concentration=...)`): sharpness
+must be *earned* through audits and reputation pooling, not claimed in one shot.
+That forces the forged belief back through the DEFER gate to audit, dropping
+evasion from 56% to 10% and damage 12x. Both mitigations, plus a random-audit
+floor, are `SimulationConfig` levers, so an attack and its patch run through the
+same harness.
+
 ## Package layout
 
 | Module | Contents |
@@ -282,6 +335,7 @@ generative model) and finds:
 | `beta_swarm.simulation` | `Simulation` — governed epoch loop, belief reputation, audits, epoch metrics |
 | `beta_swarm.collusion` | `CollusionDetector` — ring detection from belief-shape asymmetry |
 | `beta_swarm.calibration` | PIT histograms, tail-mass reliability, CRPS, `evidence_scale` sweeps |
+| `beta_swarm.redteam` | `AttackLibrary` — volume forgery, reputation farming, collusion ring; `run_attack` evaluator |
 
 ## Tests
 

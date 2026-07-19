@@ -40,6 +40,15 @@ from beta_swarm.payoff import (
     PayoffConfig,
 )
 from beta_swarm.proxy import BetaProxyComputer, ProxyObservables
+from beta_swarm.redteam import (
+    AttackCategory,
+    AttackLibrary,
+    AttackResult,
+    AttackScenario,
+    ReputationFarmer,
+    VolumeForger,
+    run_attack,
+)
 from beta_swarm.simulation import (
     EpochReport,
     Simulation,
@@ -87,5 +96,12 @@ __all__ = [
     "sweep_evidence_scale",
     "pit_values",
     "tail_reliability_bins",
+    "AttackCategory",
+    "AttackLibrary",
+    "AttackScenario",
+    "AttackResult",
+    "VolumeForger",
+    "ReputationFarmer",
+    "run_attack",
     "__version__",
 ]

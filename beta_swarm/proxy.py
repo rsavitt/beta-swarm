@@ -46,6 +46,12 @@ class BetaProxyComputer:
         Prior pseudo-count when no evidence is present (the diffuse floor).
     evidence_scale:
         How strongly each observed signal sharpens the belief.
+    max_concentration:
+        Ceiling on the concentration a single interaction may assert. ``None``
+        (default) leaves it uncapped — the configuration a volume-forgery attack
+        exploits, fabricating event count to claim near-arbitrary sharpness.
+        Setting a cap means high confidence must be *earned* through audits and
+        reputation pooling, not claimed in one interaction.
     """
 
     w_progress: float = 0.4
@@ -55,6 +61,7 @@ class BetaProxyComputer:
     sigmoid_k: float = 2.0
     base_concentration: float = 2.0
     evidence_scale: float = 1.5
+    max_concentration: float | None = None
 
     def __post_init__(self) -> None:
         weights = np.array(
@@ -104,7 +111,10 @@ class BetaProxyComputer:
             + obs.tool_misuse_flags
             + abs(obs.counterparty_engagement_delta)
         )
-        return self.base_concentration + self.evidence_scale * evidence
+        conc = self.base_concentration + self.evidence_scale * evidence
+        if self.max_concentration is not None:
+            conc = min(conc, self.max_concentration)
+        return conc
 
     def compute_belief(self, obs: ProxyObservables) -> BetaBelief:
         """Full pipeline: observables -> (mean via sigmoid, concentration via evidence)."""
