@@ -8,6 +8,7 @@ certainty). Payoffs become ``E_F[surplus(v)]``, governance triggers on tail mass
 between accepted and rejected belief distributions.
 """
 
+from beta_swarm.adaptive import AdaptiveController, Proposal, ProposalStatus
 from beta_swarm.agents import Archetype, SimAgent, make_population
 from beta_swarm.belief import BetaBelief
 from beta_swarm.calibration import (
@@ -119,5 +120,8 @@ __all__ = [
     "StakingLever",
     "TailCircuitBreaker",
     "RiskTaxLever",
+    "AdaptiveController",
+    "Proposal",
+    "ProposalStatus",
     "__version__",
 ]

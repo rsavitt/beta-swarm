@@ -358,6 +358,45 @@ throughput dips (99% → 92%) and welfare with it. The circuit breaker (which
 needs a *sustained* bad rate) is more targeted. Choosing the mix is the
 governance design problem the levers exist to study.
 
+## Adaptive governance: tuning the risk budget, reversibly
+
+A fixed `max_tail_mass` is a guess, and a wrong guess costs you in both
+directions. `beta_swarm.adaptive` ports the parent framework's adaptive
+controller, which treats a threshold as something to *learn* from realized
+outcomes — and treats every change as a **reversible experiment**: propose a
+change, apply it temporarily, then *crystallize* it if outcomes sustain, else
+*revert*. Governance changes must earn their keep.
+
+The `AdaptiveController` steers the governor toward a policy target on
+**realized** toxicity (`E[1 - v_true | accepted]`, ground truth — not the
+belief the governor was shown). Dropped onto two badly misconfigured governors
+and one correct one, all with the same target
+([`examples/adaptive_governance.py`](examples/adaptive_governance.py)):
+
+```text
+  start                    max_tail_mass   realized toxicity
+  ----------------------------------------------------------
+  misconfigured loose      0.55 (static)               0.402
+  -> adaptive              0.20  (tuned)               0.381    [7 kept, 3 reverted]
+
+  misconfigured tight      0.05 (static)               0.341
+  -> adaptive              0.20  (tuned)               0.367    [6 kept, 1 reverted]
+
+  already correct          0.12 (static)               0.370
+  -> adaptive              0.17  (tuned)               0.368    [4 kept, 4 reverted]
+```
+
+A static budget misses the target in both directions — too loose sits over the
+risk appetite, too tight turns away good work for no safety gain. The controller
+pulls both to the ~0.37 target *from opposite starts*, and leaves the correct
+governor near where it began. The **reverted** proposals are the discipline that
+makes it safe: a step that overshoots the target is rolled back, so the threshold
+only keeps changes that earned their keep. (Two calibration notes the example's
+population makes concrete: the target must be *reachable* — realized toxicity is
+floored by the accepted population's true quality — and a warmup period is needed
+so the controller tunes on steady state, not the reputation transient at the
+start of a run.)
+
 ## Package layout
 
 | Module | Contents |
@@ -374,6 +413,7 @@ governance design problem the levers exist to study.
 | `beta_swarm.calibration` | PIT histograms, tail-mass reliability, CRPS, `evidence_scale` sweeps |
 | `beta_swarm.redteam` | `AttackLibrary` — volume forgery, reputation farming, collusion ring; `run_attack` evaluator |
 | `beta_swarm.levers` | `GovernanceStack` — staking, tail circuit breaker, risk tax; composable ex-post accountability |
+| `beta_swarm.adaptive` | `AdaptiveController` — tune the risk budget to a realized-risk target, crystallize/revert |
 
 ## Tests
 

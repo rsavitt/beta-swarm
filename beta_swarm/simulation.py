@@ -29,6 +29,7 @@ metrics, epoch by epoch.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
 import numpy as np
 
@@ -40,6 +41,9 @@ from beta_swarm.levers import GovernanceStack, LeverContext
 from beta_swarm.metrics import DistributionalMetrics
 from beta_swarm.payoff import DistributionalPayoffEngine
 from beta_swarm.proxy import BetaProxyComputer
+
+if TYPE_CHECKING:
+    from beta_swarm.adaptive import AdaptiveController
 
 _FLOOR = 1e-6
 
@@ -189,6 +193,7 @@ class Simulation:
         engine: DistributionalPayoffEngine | None = None,
         proxy: BetaProxyComputer | None = None,
         levers: GovernanceStack | None = None,
+        controller: "AdaptiveController | None" = None,
     ):
         if not population:
             raise ValueError("population must be non-empty")
@@ -198,6 +203,7 @@ class Simulation:
         self.engine = engine or DistributionalPayoffEngine()
         self.proxy = proxy or BetaProxyComputer()
         self.levers = levers
+        self.controller = controller
         self.metrics = DistributionalMetrics()
 
     def run(self) -> SimulationResult:
@@ -269,8 +275,11 @@ class Simulation:
             for agent_id, belief in reputation.items():
                 reputation[agent_id] = decay_belief(belief, cfg.reputation_decay)
 
-            reports.append(self._report(epoch, epoch_interactions, n_audits, welfare))
+            report = self._report(epoch, epoch_interactions, n_audits, welfare)
+            reports.append(report)
             all_interactions.extend(epoch_interactions)
+            if self.controller is not None:
+                self.controller.on_epoch_end(report, self.governor, epoch)
 
         return SimulationResult(
             interactions=all_interactions,
