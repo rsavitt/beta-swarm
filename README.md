@@ -397,6 +397,42 @@ floored by the accepted population's true quality — and a warmup period is nee
 so the controller tunes on steady state, not the reputation transient at the
 start of a run.)
 
+## Scenarios: a whole experiment as one file
+
+Reproducibility rests on scenario files — a run is fully specified by a config
+(population, proxy, payoff, governor, levers, controller, seed), so it can be
+version-controlled, diffed, and replayed exactly. `beta_swarm.scenarios` loads a
+YAML file into a wired `Simulation`; identical files with identical seeds produce
+identical runs.
+
+```yaml
+scenario_id: volume_forgery_defended
+seed: 7
+population:
+  - {archetype: honest, count: 4}
+  - {archetype: mediocre, count: 3}
+  - {archetype: volume_forger, count: 3, forge_volume: 10}
+governor: {tau: 0.4, max_tail_mass: 0.2, defer_below_concentration: 20.0}
+governance_stack:
+  initial_resources: 5.0
+  levers:
+    - {type: staking, min_stake: 1.0, slash_rate: 0.5}
+    - {type: circuit_breaker, max_tail_exposure: 0.5}
+```
+
+```bash
+python examples/run_scenario.py scenarios/volume_forgery_defended.yaml
+```
+
+The population spec covers every archetype including the red-team adversaries
+(`volume_forger`, `reputation_farmer`, `colluder`) and a `borderline` spread for
+smooth control curves; the optional `governance_stack` and `adaptive` sections
+wire in the lever stack and controller. The schema rejects unknown keys, so a
+typo fails loudly instead of silently doing nothing, and a loaded scenario
+reproduces the equivalent hand-built simulation to the interaction (both are
+tested). Three scenarios ship in [`scenarios/`](scenarios): the governor
+showdown, the defended forgery attack, and the adaptive retune.
+
 ## Package layout
 
 | Module | Contents |
@@ -414,6 +450,7 @@ start of a run.)
 | `beta_swarm.redteam` | `AttackLibrary` — volume forgery, reputation farming, collusion ring; `run_attack` evaluator |
 | `beta_swarm.levers` | `GovernanceStack` — staking, tail circuit breaker, risk tax; composable ex-post accountability |
 | `beta_swarm.adaptive` | `AdaptiveController` — tune the risk budget to a realized-risk target, crystallize/revert |
+| `beta_swarm.scenarios` | `load_scenario` / `run_scenario` — a whole governed experiment as one reproducible YAML file |
 
 ## Tests
 

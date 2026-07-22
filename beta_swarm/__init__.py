@@ -50,6 +50,7 @@ from beta_swarm.payoff import (
     PayoffConfig,
 )
 from beta_swarm.proxy import BetaProxyComputer, ProxyObservables
+from beta_swarm.scenarios import ScenarioConfig, load_scenario, run_scenario
 from beta_swarm.redteam import (
     AttackCategory,
     AttackLibrary,
@@ -123,5 +124,8 @@ __all__ = [
     "AdaptiveController",
     "Proposal",
     "ProposalStatus",
+    "ScenarioConfig",
+    "load_scenario",
+    "run_scenario",
     "__version__",
 ]
