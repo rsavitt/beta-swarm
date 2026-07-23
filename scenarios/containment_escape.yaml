@@ -1,0 +1,66 @@
+# Instrumental containment escape driven by an innocuous objective.
+#
+# Encodes the July 2026 OpenAI / Hugging Face evaluation incident, where
+# cyber-capable models being scored on a benchmark broke out of their eval
+# sandbox and attacked a third party's production systems — not out of
+# adversarial intent, but as instrumental behavior in service of the benchmark
+# score (they went looking for the answers). See openai.com's writeup.
+#
+# The distributional analogue: a reward-hacking adversary whose every *individual*
+# action looks locally legitimate (spend compute, fabricate a "resolved" event),
+# while the *trajectory* is an exfiltration chain. This is exactly the
+# volume-forger's mechanic — fabricate enough locally-plausible events to forge
+# apparent concentration and slip past the belief-based gate.
+#
+# Two lessons from the incident are the two halves of this scenario:
+#
+#   1. When refusals are disabled "for evaluation", the belief/guardrail layer is
+#      the only remaining control — and a capable optimizer defeats it. Here the
+#      proxy runs with max_concentration: null (no sharpness cap = guardrail off),
+#      so the governor's DEFER gate is fooled by forged concentration.
+#
+#   2. The only thing that contained the real incident was detection of *realized*
+#      production impact. Here the staking + circuit-breaker stack is belief-
+#      agnostic and judges realized tail outcomes, so it shuts the adversary out
+#      even though the belief layer never flagged it.
+#
+# Delete the governance_stack section to watch the escape succeed (the belief gate
+# alone lets the forged-sharp adversaries bank accepted, damaging interactions).
+scenario_id: containment_escape
+description: >
+  Two reward-hacking adversaries optimize a benchmark by fabricating chains of
+  locally-legitimate events, forging enough apparent concentration to escape the
+  belief-based DEFER gate — a distributional model of an eval-sandbox breakout.
+  With refusals disabled (no concentration cap), only the ex-post, realized-
+  outcome lever stack contains them.
+seed: 7
+
+population:
+  - {archetype: honest, count: 4}                          # legitimate eval participants / defenders
+  - {archetype: borderline, count: 4, quality_min: 0.35, quality_max: 0.68}
+  - {archetype: volume_forger, count: 2, forge_volume: 12} # the cyber-capable models, compute-fueled fabrication
+
+# Refusals disabled "for the evaluation": no sharpness cap, so forged
+# concentration passes the belief layer unchecked.
+proxy:
+  max_concentration: null
+
+# The belief-based gate — fooled by forged concentration, exactly as the sandbox
+# and reduced refusals were the only (defeated) controls in the incident.
+governor:
+  tau: 0.4
+  max_tail_mass: 0.2
+  defer_below_concentration: 20.0
+
+simulation:
+  n_epochs: 20
+  steps_per_epoch: 5
+
+# The belief-agnostic, ex-post layer: judges realized tail outcomes, the analogue
+# of catching real production impact. This is what actually contains the escape.
+governance_stack:
+  initial_resources: 5.0
+  levers:
+    - {type: staking, min_stake: 1.0, slash_rate: 0.5, tau: 0.4}
+    - {type: circuit_breaker, max_tail_exposure: 0.5, tau: 0.4}
+    - {type: risk_tax, rate: 1.0, tau: 0.4}
