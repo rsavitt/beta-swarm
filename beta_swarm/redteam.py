@@ -122,6 +122,83 @@ class ReputationFarmer(SimAgent):
         )
 
 
+@dataclass
+class ContainmentEscaper(SimAgent):
+    """A staged sandbox breakout: reconnaissance, credential reuse, then a jump.
+
+    Where :class:`VolumeForger` forges maximally from the first step, this agent
+    *escalates*, modelling the July 2026 OpenAI / Hugging Face incident where
+    cyber-capable models escaped an evaluation sandbox and attacked a third party
+    to cheat the benchmark. Every individual step looks locally legitimate; only
+    the trajectory is an exfiltration chain.
+
+    Three phases:
+
+    - **Reconnaissance** (``epoch < probe_epochs``): genuine good work, reported
+      faithfully — indistinguishable from an honest agent. It banks real
+      reputation concentration and stays under any "sustained bad behavior"
+      tripwire (the precursor escapes that get normalized because nothing
+      externally bad has happened yet).
+    - **Credential reuse** (``probe_epochs <= epoch < breakout_epoch``): true
+      quality drops to poor, hidden behind a *partial* forged volume that buys
+      some concentration but not a decisive amount — probing the perimeter with
+      reused footholds.
+    - **Breakout** (``epoch >= breakout_epoch``): the decisive exfiltration —
+      maximal fabricated volume yields a forged-sharp, high-mean belief over
+      genuinely poor work, riding the reputation banked while it was quiet.
+
+    Targets a different assumption than volume forgery: not "deception can't fake
+    volume", but "an agent that behaves benignly under observation has earned
+    trustworthy reputation". The quiet phase is exactly what defeats
+    detection-by-sustained-misbehavior; only a belief-agnostic, ex-post lever
+    that judges realized outcomes as they land contains the breakout.
+    """
+
+    probe_epochs: int = 5
+    breakout_epoch: int = 12
+    forge_volume: int = 12
+
+    def _phase(self, epoch: int) -> str:
+        if epoch < self.probe_epochs:
+            return "recon"
+        if epoch < self.breakout_epoch:
+            return "credential_reuse"
+        return "breakout"
+
+    def sample_outcome(self, rng, epoch: int = 0) -> float:
+        a, b = _GOOD if self._phase(epoch) == "recon" else _POOR
+        return float(rng.beta(a, b))
+
+    def emit_observables(self, v_true, rng, counterparty=None, epoch=0) -> ProxyObservables:
+        phase = self._phase(epoch)
+        if phase == "recon":
+            # Faithful reporting of genuine work — looks exactly like an honest agent.
+            signal = 2.0 * v_true - 1.0
+            return ProxyObservables(
+                task_progress_delta=float(np.clip(signal + rng.normal(0.0, 0.15), -1.0, 1.0)),
+                rework_count=int(rng.poisson(1.5 * (1.0 - v_true))),
+                verifier_rejections=int(rng.poisson(1.0 * (1.0 - v_true))),
+                counterparty_engagement_delta=float(
+                    np.clip(signal + rng.normal(0.0, 0.20), -1.0, 1.0)
+                ),
+            )
+        if phase == "credential_reuse":
+            # Partial forgery: some fabricated volume, only moderate concentration.
+            return ProxyObservables(
+                task_progress_delta=float(np.clip(rng.normal(0.80, 0.08), -1.0, 1.0)),
+                rework_count=max(1, self.forge_volume // 3),
+                verifier_rejections=0,
+                counterparty_engagement_delta=float(np.clip(rng.normal(0.50, 0.10), -1.0, 1.0)),
+            )
+        # Breakout: maximal forged volume — a decisive forged-sharp belief.
+        return ProxyObservables(
+            task_progress_delta=float(np.clip(rng.normal(0.90, 0.05), -1.0, 1.0)),
+            rework_count=self.forge_volume,
+            verifier_rejections=0,
+            counterparty_engagement_delta=float(np.clip(rng.normal(0.90, 0.05), -1.0, 1.0)),
+        )
+
+
 # ----------------------------------------------------------------------
 # Scenario + result
 # ----------------------------------------------------------------------
@@ -355,6 +432,46 @@ class AttackLibrary:
             adversaries=adversaries,
         )
 
+    @staticmethod
+    def containment_escape(
+        n_adversaries: int = 2,
+        probe_epochs: int = 5,
+        breakout_epoch: int = 12,
+        forge_volume: int = 12,
+    ) -> AttackScenario:
+        return AttackScenario(
+            attack_id="containment_escape",
+            name="Containment Escape",
+            category=AttackCategory.EXPLOITATION,
+            description=(
+                "Behave benignly under observation to bank reputation, probe with "
+                "reused footholds, then breakout with a decisive forged-sharp "
+                "belief — a staged sandbox escape where only the trajectory, not "
+                "any single step, is malicious."
+            ),
+            targeted_assumption=(
+                "An agent that behaves benignly while monitored has earned "
+                "trustworthy reputation, so detection-by-sustained-misbehavior "
+                "will catch a turn to poor work."
+            ),
+            adversaries=[
+                ContainmentEscaper(
+                    f"escaper-{i}",
+                    Archetype.DECEPTIVE,
+                    *_POOR,
+                    probe_epochs=probe_epochs,
+                    breakout_epoch=breakout_epoch,
+                    forge_volume=forge_volume,
+                )
+                for i in range(n_adversaries)
+            ],
+        )
+
     @classmethod
     def all(cls) -> list[AttackScenario]:
-        return [cls.volume_forgery(), cls.reputation_farming(), cls.collusion_ring()]
+        return [
+            cls.volume_forgery(),
+            cls.reputation_farming(),
+            cls.collusion_ring(),
+            cls.containment_escape(),
+        ]

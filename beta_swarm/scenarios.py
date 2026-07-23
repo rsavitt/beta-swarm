@@ -55,7 +55,7 @@ from beta_swarm.levers import (
 )
 from beta_swarm.payoff import DistributionalPayoffEngine, PayoffConfig
 from beta_swarm.proxy import BetaProxyComputer
-from beta_swarm.redteam import ReputationFarmer, VolumeForger
+from beta_swarm.redteam import ContainmentEscaper, ReputationFarmer, VolumeForger
 from beta_swarm.simulation import Simulation, SimulationConfig
 
 # Archetypes that map straight to a stock SimAgent.
@@ -76,7 +76,8 @@ class AgentSpec(_Strict):
     Extra fields apply to specific archetypes: ``borderline`` spreads
     ``count`` agents evenly across quality means in ``[quality_min, quality_max]``
     at fixed ``concentration``; ``volume_forger`` takes ``forge_volume``;
-    ``reputation_farmer`` takes ``flip_epoch``.
+    ``reputation_farmer`` takes ``flip_epoch``; ``containment_escaper`` takes
+    ``forge_volume``, ``probe_epochs``, and ``breakout_epoch``.
     """
 
     archetype: str
@@ -85,10 +86,13 @@ class AgentSpec(_Strict):
     quality_min: float = 0.35
     quality_max: float = 0.68
     concentration: float = 12.0
-    # volume_forger
+    # volume_forger / containment_escaper
     forge_volume: int = 10
     # reputation_farmer
     flip_epoch: int = 10
+    # containment_escaper
+    probe_epochs: int = 5
+    breakout_epoch: int = 12
 
     def build(self) -> list[SimAgent]:
         if self.archetype in _STOCK:
@@ -121,9 +125,22 @@ class AgentSpec(_Strict):
                 ReputationFarmer(f"farmer-{i}", Archetype.DECEPTIVE, *_POOR, flip_epoch=self.flip_epoch)
                 for i in range(self.count)
             ]
+        if self.archetype == "containment_escaper":
+            return [
+                ContainmentEscaper(
+                    f"escaper-{i}",
+                    Archetype.DECEPTIVE,
+                    *_POOR,
+                    probe_epochs=self.probe_epochs,
+                    breakout_epoch=self.breakout_epoch,
+                    forge_volume=self.forge_volume,
+                )
+                for i in range(self.count)
+            ]
         raise ValueError(
             f"unknown archetype {self.archetype!r}; expected one of "
-            f"{sorted(_STOCK)} or borderline / volume_forger / reputation_farmer"
+            f"{sorted(_STOCK)} or borderline / volume_forger / reputation_farmer / "
+            "containment_escaper"
         )
 
 

@@ -8,9 +8,11 @@
 #
 # The distributional analogue: a reward-hacking adversary whose every *individual*
 # action looks locally legitimate (spend compute, fabricate a "resolved" event),
-# while the *trajectory* is an exfiltration chain. This is exactly the
-# volume-forger's mechanic — fabricate enough locally-plausible events to forge
-# apparent concentration and slip past the belief-based gate.
+# while the *trajectory* is an exfiltration chain. The containment_escaper models
+# this as a *staged* escalation — reconnaissance (genuine work, banking
+# reputation), credential reuse (partial forgery), then a decisive breakout —
+# rather than a constant attack, capturing the precursor escapes that get
+# normalized before the externally-damaging jump.
 #
 # Two lessons from the incident are the two halves of this scenario:
 #
@@ -38,7 +40,8 @@ seed: 7
 population:
   - {archetype: honest, count: 4}                          # legitimate eval participants / defenders
   - {archetype: borderline, count: 4, quality_min: 0.35, quality_max: 0.68}
-  - {archetype: volume_forger, count: 2, forge_volume: 12} # the cyber-capable models, compute-fueled fabrication
+  # The cyber-capable models: quiet through epoch 5, probe, then break out at epoch 12.
+  - {archetype: containment_escaper, count: 2, probe_epochs: 5, breakout_epoch: 12, forge_volume: 12}
 
 # Refusals disabled "for the evaluation": no sharpness cap, so forged
 # concentration passes the belief layer unchecked.

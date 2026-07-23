@@ -89,6 +89,20 @@ def test_redteam_archetypes_build():
     assert pop[2].flip_epoch == 5
 
 
+def test_containment_escaper_builds_with_phase_params():
+    cfg = ScenarioConfig.model_validate(
+        _cfg(population=[
+            {"archetype": "containment_escaper", "count": 2,
+             "probe_epochs": 3, "breakout_epoch": 9, "forge_volume": 15},
+        ])
+    )
+    pop = cfg.build_population()
+    assert [a.agent_id for a in pop] == ["escaper-0", "escaper-1"]
+    assert pop[0].probe_epochs == 3
+    assert pop[0].breakout_epoch == 9
+    assert pop[0].forge_volume == 15
+
+
 def test_colluders_share_a_ring():
     cfg = ScenarioConfig.model_validate(_cfg(population=[{"archetype": "colluder", "count": 3}]))
     pop = cfg.build_population()
@@ -142,11 +156,20 @@ def test_same_file_same_seed_is_deterministic():
 # ----------------------------------------------------------------------
 # The shipped scenario files load and run
 # ----------------------------------------------------------------------
-@pytest.mark.parametrize("name", ["governor_showdown", "volume_forgery_defended"])
+@pytest.mark.parametrize(
+    "name", ["governor_showdown", "volume_forgery_defended", "containment_escape"]
+)
 def test_shipped_scenarios_run(name):
     result = run_scenario(SCENARIOS / f"{name}.yaml")
     assert result.interactions
     assert result.epoch_reports
+
+
+def test_containment_escape_scenario_contains_the_breakout():
+    result = run_scenario(SCENARIOS / "containment_escape.yaml")
+    escaper = [i for i in result.interactions if i.initiator.startswith("escaper")]
+    assert escaper
+    assert sum(i.metadata.get("blocked", False) for i in escaper) / len(escaper) > 0.2
 
 
 def test_defended_scenario_blocks_forgers():
